@@ -32,31 +32,42 @@
       </div>
     </mat-toolbar>
 
-    <div class="message-area" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+    <div #messageArea class="message-area" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
       
-      @for (msg of messages(); track msg.time) {
-        <div [style.align-self]="msg.sender === username() ? 'flex-end' : 'flex-start'"
-             [style.max-width]="'70%'">
-          
-          @if (msg.sender !== username()) {
-            <small style="display: block; margin-left: 8px; margin-bottom: 4px; color: #666; font-size: 11px;">
-              {{ msg.sender }}
-            </small>
-          }
-
-          <div [style.background]="msg.sender === username() ? '#0084ff' : '#ffffff'"
-               [style.color]="msg.sender === username() ? '#ffffff' : '#333333'"
-               style="padding: 10px 16px; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.15); word-break: break-word; position: relative;">
-            
-            <span>{{ msg.content }}</span>
-            
-            <small [style.color]="msg.sender === username() ? '#e0e0e0' : '#888888'"
-                   style="display: block; text-align: right; font-size: 9px; margin-top: 4px;">
-              {{ msg.time }}
-            </small>
+      @for (msg of messages(); track msg.time + msg.content) {
+        
+        @if (msg.isSystem) {
+          <div style="align-self: center; background: rgba(0, 0, 0, 0.05); color: #555555; padding: 6px 16px; border-radius: 20px; font-size: 11px; margin: 8px 0; text-align: center; max-width: 90%;">
+            <span>📢 {{ msg.content }}</span>
+            <span style="color: #999999; margin-left: 6px;">({{ msg.time }})</span>
           </div>
+        }
+        
+        @else {
+          <div [style.align-self]="msg.sender === username() ? 'flex-end' : 'flex-start'"
+               [style.max-width]="'70%'">
+            
+            @if (msg.sender !== username()) {
+              <small style="display: block; margin-left: 8px; margin-bottom: 4px; color: #666; font-size: 11px;">
+                {{ msg.sender }}
+              </small>
+            }
 
-        </div>
+            <div [style.background]="msg.sender === username() ? '#0084ff' : '#ffffff'"
+                 [style.color]="msg.sender === username() ? '#ffffff' : '#333333'"
+                 style="padding: 10px 16px; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.15); word-break: break-word; position: relative;">
+              
+              <span>{{ msg.content }}</span>
+              
+              <small [style.color]="msg.sender === username() ? '#e0e0e0' : '#888888'"
+                     style="display: block; text-align: right; font-size: 9px; margin-top: 4px;">
+                {{ msg.time }}
+              </small>
+            </div>
+
+          </div>
+        }
+
       } @empty {
         <div style="text-align: center; color: #888; margin-top: 50px;">Chưa có tin nhắn nào trong phòng này.</div>
       }
@@ -64,8 +75,8 @@
     </div>
 
     @if (typingMessage()) {
-      <div class="typing-indicator" style="font-style: italic; color: #757575; font-size: 13px; padding: 4px 24px; background: rgba(255, 255, 255, 0.7); display: flex; align-items: center; gap: 6px; border-top: 1px solid #e0e0e0; animation: fadeIn 0.3s;">
-        <span style="display: inline-block; width: 6px; height: 6px; background-color: #0084ff; border-radius: 50%; animate: pulse 1s infinite;"></span>
+      <div class="typing-indicator" style="font-style: italic; color: #757575; font-size: 13px; padding: 6px 24px; background: rgba(255, 255, 255, 0.85); display: flex; align-items: center; gap: 6px; border-top: 1px solid #e0e0e0; animation: fadeIn 0.3s;">
+        <span style="display: inline-block; width: 6px; height: 6px; background-color: #0084ff; border-radius: 50%; animation: pulse 1s infinite;"></span>
         <span>{{ typingMessage() }}</span>
       </div>
     }
