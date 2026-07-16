@@ -44,6 +44,10 @@ export class App implements OnInit, OnDestroy {
   // Danh sách tin nhắn động (Bắt đầu bằng mảng rỗng)
   messages = signal<Message[]>([]);
 
+  // --- THÊM CÁC BIẾN CHO TRẠNG THÁI GÕ CHỮ ---
+  typingMessage = signal(''); 
+  private typingTimeout: any;
+
   // Biến lưu trữ kết nối Socket
   private socket!: Socket;
 
@@ -55,6 +59,37 @@ export class App implements OnInit, OnDestroy {
     this.socket.on('receiveMessage', (data: Message) => {
       this.messages.update(prev => [...prev, data]);
     });
+
+    // 3. LẮNG NGHE KHI CÓ NGƯỜI KHÁC ĐANG GÕ CHỮ
+    this.socket.on('userTyping', (typingUser: string) => {
+      this.typingMessage.set(`${typingUser} đang gõ...`);
+    });
+
+    // 4. LẮNG NGHE KHI NGƯỜI ĐÓ DỪNG GÕ HOẶC GỬI TIN
+    this.socket.on('userStopTyping', () => {
+      this.typingMessage.set('');
+    });
+  }
+
+  // HÀM GỬI TÍN HIỆU ĐANG GÕ CHỮ LÊN SERVER
+  onInputChange() {
+    // Chỉ gửi tín hiệu khi người dùng thực sự có gõ chữ
+    if (this.currentMessage().trim() !== '') {
+      this.socket.emit('typing', this.username());
+
+      // Xoá bộ đếm thời gian cũ
+      if (this.typingTimeout) {
+        clearTimeout(this.typingTimeout);
+      }
+
+      // Đặt bộ đếm 1.5 giây: Nếu dừng gõ 1.5s thì gửi sự kiện ngưng gõ lên server
+      this.typingTimeout = setTimeout(() => {
+        this.socket.emit('stopTyping');
+      }, 1500);
+    } else {
+      // Nếu xoá sạch kí tự trong ô input, lập tức báo dừng gõ luôn
+      this.socket.emit('stopTyping');
+    }
   }
 
   joinRoom() {
@@ -81,6 +116,12 @@ export class App implements OnInit, OnDestroy {
 
       // Xóa ô nhập liệu
       this.currentMessage.set('');
+
+      // Ngắt trạng thái gõ và báo ngay cho server
+      if (this.typingTimeout) {
+        clearTimeout(this.typingTimeout);
+      }
+      this.socket.emit('stopTyping');
     }
   }
 

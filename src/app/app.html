@@ -63,8 +63,23 @@
 
     </div>
 
+    @if (typingMessage()) {
+      <div class="typing-indicator" style="font-style: italic; color: #757575; font-size: 13px; padding: 4px 24px; background: rgba(255, 255, 255, 0.7); display: flex; align-items: center; gap: 6px; border-top: 1px solid #e0e0e0; animation: fadeIn 0.3s;">
+        <span style="display: inline-block; width: 6px; height: 6px; background-color: #0084ff; border-radius: 50%; animate: pulse 1s infinite;"></span>
+        <span>{{ typingMessage() }}</span>
+      </div>
+    }
+
     <div class="input-area" style="background: #ffffff; padding: 12px 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);">
-      <mat-form-field appearance="outline" style="flex: 1; margin-bottom: -22px;"> <input matInput [(ngModel)]="currentMessage" (keyup.enter)="sendMessage()" placeholder="Nhập tin nhắn của bạn...">
+      
+      <mat-form-field appearance="outline" style="flex: 1; margin-bottom: -22px;">
+        <input 
+          matInput 
+          [(ngModel)]="currentMessage" 
+          (input)="onInputChange()" 
+          (keyup.enter)="sendMessage()" 
+          placeholder="Nhập tin nhắn của bạn..."
+        >
       </mat-form-field>
 
       <button mat-mini-fab color="primary" (click)="sendMessage()" [disabled]="currentMessage().trim() === ''">
