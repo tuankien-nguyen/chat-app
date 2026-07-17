@@ -58,6 +58,11 @@ export class App implements OnInit, OnDestroy {
   // Tín hiệu động quản lý chiều cao thực tế của khung chat (Fix lỗi bàn phím đè trên iOS)
   chatHeight = signal('100vh');
 
+  // --- CÁC THUỘC TÍNH PHỤC VỤ SIDEBAR TRƯỢT (SLIDE DRAWER) & VUỐT CHẠM ---
+  isSidebarOpen = signal(false); // Trạng thái ẩn/hiện danh sách online
+  startX?: number;               // Điểm chạm đầu tiên khi vuốt màn hình
+  endX?: number;                 // Điểm nhấc tay cuối cùng khi vuốt màn hình
+
   // Danh sách tin nhắn động (Bắt đầu bằng mảng rỗng)
   messages = signal<Message[]>([]);
 
@@ -89,6 +94,19 @@ export class App implements OnInit, OnDestroy {
       window.visualViewport.addEventListener('resize', this.handleViewportChange);
       window.visualViewport.addEventListener('scroll', this.handleViewportChange);
     }
+  }
+
+  // --- CÁC HÀM ĐIỀU KHIỂN SIDEBAR ---
+  openSidebar() {
+    this.isSidebarOpen.set(true);
+  }
+
+  closeSidebar() {
+    this.isSidebarOpen.set(false);
+  }
+
+  toggleSidebar() {
+    this.isSidebarOpen.set(!this.isSidebarOpen());
   }
 
   // Hàm callback tính toán chiều cao viewport thực tế
@@ -264,6 +282,7 @@ export class App implements OnInit, OnDestroy {
     this.messages.set([]);        // Xóa tin nhắn cũ của phiên làm việc trước
     this.usersOnline.set([]);      // Xóa danh sách online cũ
     this.typingMessage.set('');    // Reset dòng chữ đang gõ
+    this.isSidebarOpen.set(false); // Đóng sidebar khi logout
 
     // 3. Kết nối lại chính đối tượng socket này (Nó vẫn giữ nguyên tất cả sự kiện đã bind)
     // Sẵn sàng kết nối sạch sẽ cho username tiếp theo đăng nhập

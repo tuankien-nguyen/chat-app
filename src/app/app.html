@@ -16,26 +16,57 @@
 } 
 
 @else {
-  <!-- CSS Reset dành riêng cho Mobile & iOS -->
+  <!-- CSS Responsive mới hỗ trợ hiệu ứng Slide Drawer trên Mobile -->
   <style>
-    /* Ẩn sidebar trên mobile */
+    /* Mặc định trên Desktop: Sidebar hiển thị bình thường sát lề trái */
+    .online-sidebar {
+      width: 240px;
+      background: #ffffff;
+      border-right: 1px solid #dcdcdc;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      flex-shrink: 0;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90;
+    }
+
+    /* Trên Mobile (Dưới 768px): Biến sidebar thành ngăn kéo trượt (Slide Drawer) */
     @media (max-width: 768px) {
-      .sidebar-responsive {
-        display: none !important;
+      .online-sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 260px;
+        box-shadow: 4px 0 15px rgba(0, 0, 0, 0.25);
+        transform: translateX(-100%); /* Giấu sidebar về bên trái màn hình */
+      }
+
+      /* Khi tín hiệu isSidebarOpen() là true thì trượt sidebar ra */
+      .sidebar-open .online-sidebar {
+        transform: translateX(0);
       }
     }
 
-    /* Đảm bảo bong bóng chat trên mobile không bị tràn lề */
+    /* Đảm bảo bong bóng chat không bị tràn */
     @media (max-width: 480px) {
       .message-bubble-wrapper {
-        max-width: 88% !important; /* Tối ưu độ rộng của bong bóng chat trên màn hình hẹp */
+        max-width: 88% !important;
       }
     }
   </style>
 
-  <!-- ĐÃ CẬP NHẬT: Sử dụng [style.height] động để tự co rụt lại khi bàn phím ảo iOS đẩy lên -->
+  <!-- Container chat chính -->
+  <!-- Thêm class động "sidebar-open" dựa trên Signal isSidebarOpen() -->
+  <!-- Thêm bộ lắng nghe vuốt màn hình (touchstart và touchend) để điều khiển mở/đóng bằng cách vuốt tay -->
   <div class="chat-container" 
+       [class.sidebar-open]="isSidebarOpen()"
        [style.height]="chatHeight()"
+       (touchstart)="$event.touches[0] ? (startX = $event.touches[0].clientX) : null"
+       (touchend)="$event.changedTouches[0] ? (endX = $event.changedTouches[0].clientX) : null; 
+                   (startX !== undefined && endX !== undefined && endX - startX > 80 && startX < 50) ? openSidebar() : null;
+                   (startX !== undefined && endX !== undefined && startX - endX > 80 && isSidebarOpen()) ? closeSidebar() : null;"
        style="
          position: fixed; 
          top: 0; 
@@ -45,14 +76,35 @@
          flex-direction: column; 
          background: #eaeaea; 
          overflow: hidden;
-         padding-left: env(safe-area-inset-left); /* Chống mất lề trên iPhone có tai thỏ */
+         padding-left: env(safe-area-inset-left);
          padding-right: env(safe-area-inset-right);
-         transition: height 0.1s ease-out; /* Hiệu ứng mượt mà khi co giãn khung nhìn */
+         transition: height 0.1s ease-out;
        ">
     
     <!-- THANH TOOLBAR TRÊN CÙNG -->
-    <mat-toolbar color="primary" style="display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0; height: 56px; min-height: 56px;">
-      <span style="font-size: 16px; font-weight: bold;">💬 Super Chat App v2</span>
+    <mat-toolbar color="primary" style="display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 100; flex-shrink: 0; height: 56px; min-height: 56px;">
+      
+      <!-- BÊN TRÁI: ICON MENU + TIÊU ĐỀ (Nhấp vào bất kỳ phần nào ở đây cũng mở được danh sách Online) -->
+      <div (click)="toggleSidebar()" style="display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none;">
+        <!-- Hamburger Icon ẩn trên Desktop, chỉ hiện trên Mobile -->
+        <button mat-icon-button class="menu-button" style="width: 36px; height: 36px; display: none;">
+          <mat-icon style="font-size: 24px;">menu</mat-icon>
+        </button>
+        <span style="font-size: 16px; font-weight: bold;">💬 Super Chat App v2</span>
+      </div>
+
+      <!-- CSS helper để chỉ hiển thị nút Menu trên Mobile -->
+      <style>
+        @media (max-width: 768px) {
+          .menu-button {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+          }
+        }
+      </style>
+
+      <!-- BÊN PHẢI: USERNAME + LOGOUT -->
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-size: 12px; font-weight: normal; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
           <b>{{ username() }}</b>
@@ -66,8 +118,19 @@
     <!-- BỐ CỤC CHÍNH -->
     <div style="display: flex; flex: 1; overflow: hidden; position: relative;">
       
-      <!-- CỘT TRÁI: DANH SÁCH NGƯỜI ĐANG ONLINE (Ẩn trên mobile) -->
-      <div class="online-sidebar sidebar-responsive" style="width: 240px; background: #ffffff; border-right: 1px solid #dcdcdc; display: flex; flex-direction: column; padding: 16px; flex-shrink: 0;">
+      <!-- LỚP PHỦ MỜ (BACKDROP) PHÍA SAU SIDEBAR KHI MỞ TRÊN MOBILE (Click vào đây để đóng sidebar) -->
+      @if (isSidebarOpen()) {
+        <div (click)="closeSidebar()" style="
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+          z-index: 85;
+          backdrop-filter: blur(2px);
+        "></div>
+      }
+      
+      <!-- CỘT TRÁI: DANH SÁCH NGƯỜI ĐANG ONLINE -->
+      <div class="online-sidebar">
         <h3 style="margin-top: 0; margin-bottom: 16px; font-weight: bold; color: #333; display: flex; align-items: center; gap: 8px;">
           <span style="display: inline-block; width: 10px; height: 10px; background-color: #4caf50; border-radius: 50%;"></span>
           Trực tuyến ({{ usersOnline().length }})
@@ -197,7 +260,7 @@
           </div>
         }
 
-        <!-- KHU VỰC NHẬP TIN NHẮN (Giữ nguyên padding an toàn iOS) -->
+        <!-- KHU VỰC NHẬP TIN NHẮN -->
         <div class="input-area" style="
           background: #ffffff; 
           padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) 12px; 
