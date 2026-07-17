@@ -50,7 +50,7 @@ interface Message {
 export class App implements OnInit, OnDestroy {
   linkOnline = "https://tuankien-chat-backend.onrender.com"
   linkLocal = "http://localhost:3000"
-  LINK = this.linkLocal
+  LINK = this.linkOnline
   username = model('');       
   isLoggedIn = signal(false);  
   currentMessage = model('');
