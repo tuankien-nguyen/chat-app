@@ -175,6 +175,17 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  scrollToBottomOnFocus() {
+  // 1. Reset lại vị trí cuộn của window về 0 để chống trôi/lệch layout của iOS
+  window.scrollTo(0, 0);
+  
+  // 2. Đợi bàn phím ảo trồi lên hẳn rồi cuộn vùng chat xuống dưới cùng
+  setTimeout(() => {
+    this.scrollToBottom();
+    window.scrollTo(0, 0); // Kép thêm 1 lần nữa cho chắc chắn
+  }, 300);
+}
+
   // Gửi tin nhắn lên Server
   sendMessage() {
     const text = this.currentMessage().trim();

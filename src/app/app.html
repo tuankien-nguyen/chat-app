@@ -1,5 +1,5 @@
 @if (!isLoggedIn()) {
-  <div class="login-wrapper" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f5f5; padding: 16px; box-sizing: border-box;">
+  <div class="login-wrapper" style="display: flex; justify-content: center; align-items: center; position: fixed; inset: 0; background: #f5f5f5; padding: 16px; box-sizing: border-box;">
     <mat-card style="width: 100%; max-width: 400px; padding: 24px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
       <mat-card-content>
         <h2 style="margin-bottom: 24px; color: #333; font-weight: bold;">Tham gia Phòng Chat</h2>
@@ -16,24 +16,44 @@
 } 
 
 @else {
-  <!-- Thêm quy tắc ẩn cột trái (Sidebar) trên thiết bị di động -->
+  <!-- CSS Reset dành riêng cho Mobile & iOS -->
   <style>
+    /* Ẩn sidebar trên mobile */
     @media (max-width: 768px) {
       .sidebar-responsive {
         display: none !important;
       }
     }
+
+    /* Đảm bảo bong bóng chat trên mobile không bị tràn lề */
+    @media (max-width: 480px) {
+      .message-bubble-wrapper {
+        max-width: 88% !important; /* Tối ưu độ rộng của bong bóng chat trên màn hình hẹp */
+      }
+    }
   </style>
 
-  <!-- Sử dụng dvh (dynamic viewport height) để thích ứng hoàn hảo khi bàn phím ảo trồi lên/hạ xuống trên điện thoại -->
-  <div class="chat-container" style="display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #eaeaea; overflow: hidden;">
+  <!-- Sử dụng position: fixed thay vì height: 100vh để chống trôi layout trên iOS khi mở bàn phím -->
+  <div class="chat-container" style="
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0; 
+    display: flex; 
+    flex-direction: column; 
+    background: #eaeaea; 
+    overflow: hidden;
+    padding-left: env(safe-area-inset-left); /* Chống mất lề trên iPhone có tai thỏ */
+    padding-right: env(safe-area-inset-right);
+  ">
     
     <!-- THANH TOOLBAR TRÊN CÙNG -->
-    <mat-toolbar color="primary" style="display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0;">
+    <mat-toolbar color="primary" style="display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0; height: 56px; min-height: 56px;">
       <span style="font-size: 16px; font-weight: bold;">💬 Super Chat App v2</span>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 12px; font-weight: normal; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          Đang đăng nhập: <b>{{ username() }}</b>
+        <span style="font-size: 12px; font-weight: normal; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <b>{{ username() }}</b>
         </span>
         <button mat-icon-button (click)="logout()" title="Thoát phòng" style="width: 36px; height: 36px;">
           <mat-icon style="font-size: 20px;">logout</mat-icon>
@@ -41,10 +61,10 @@
       </div>
     </mat-toolbar>
 
-    <!-- BỐ CỤC CHÍNH CHIA LÀM 2 CỘT -->
+    <!-- BỐ CỤC CHÍNH -->
     <div style="display: flex; flex: 1; overflow: hidden; position: relative;">
       
-      <!-- CỘT TRÁI: DANH SÁCH NGƯỜI ĐANG ONLINE (Ẩn đi trên Mobile bằng class sidebar-responsive) -->
+      <!-- CỘT TRÁI: DANH SÁCH NGƯỜI ĐANG ONLINE (Ẩn trên mobile) -->
       <div class="online-sidebar sidebar-responsive" style="width: 240px; background: #ffffff; border-right: 1px solid #dcdcdc; display: flex; flex-direction: column; padding: 16px; flex-shrink: 0;">
         <h3 style="margin-top: 0; margin-bottom: 16px; font-weight: bold; color: #333; display: flex; align-items: center; gap: 8px;">
           <span style="display: inline-block; width: 10px; height: 10px; background-color: #4caf50; border-radius: 50%;"></span>
@@ -70,11 +90,11 @@
       <div style="flex: 1; display: flex; flex-direction: column; background: #eaeaea; position: relative; overflow: hidden;">
         
         <!-- KHU VỰC HIỂN THỊ TIN NHẮN -->
-        <!-- FIX MOBILE: Thêm -webkit-overflow-scrolling: touch để vuốt mượt quán tính, giảm padding nhẹ để tối ưu không gian -->
+        <!-- Bổ sung padding-left và padding-right rõ ràng để giữ lề cân đối trên iPhone màn hình lớn -->
         <div #messageArea class="message-area" style="
           flex: 1; 
           overflow-y: auto; 
-          padding: 12px 12px 20px 12px; 
+          padding: 16px 16px 24px 16px; 
           display: flex; 
           flex-direction: column; 
           gap: 12px; 
@@ -94,18 +114,18 @@
             
             <!-- TIN NHẮN CHAT THƯỜNG -->
             @else {
-              <!-- Tăng nhẹ max-width lên 80% trên màn hình nhỏ để tránh chữ bị ngắt hàng liên tục -->
-              <div [style.align-self]="msg.sender === username() ? 'flex-end' : 'flex-start'"
-                   style="position: relative; display: flex; flex-direction: column; max-width: 80%;">
+              <div class="message-bubble-wrapper" 
+                   [style.align-self]="msg.sender === username() ? 'flex-end' : 'flex-start'"
+                   style="position: relative; display: flex; flex-direction: column; max-width: 75%; box-sizing: border-box;">
                 
                 @if (msg.sender !== username()) {
-                  <small style="display: block; margin-left: 8px; margin-bottom: 4px; color: #666; font-size: 11px;">
+                  <small style="display: block; margin-left: 4px; margin-bottom: 4px; color: #666; font-size: 11px;">
                     {{ msg.sender }}
                   </small>
                 }
 
-                <!-- THÂN TIN NHẮN CHỨA BONG BÓNG CHAT VÀ NÚT REACTION -->
-                <div style="display: flex; align-items: center; gap: 4px; position: relative;" [style.flex-direction]="msg.sender === username() ? 'row-reverse' : 'row'">
+                <!-- THÂN TIN NHẮN -->
+                <div style="display: flex; align-items: center; gap: 6px; position: relative;" [style.flex-direction]="msg.sender === username() ? 'row-reverse' : 'row'">
                   
                   <!-- BONG BÓNG CHAT -->
                   <div [style.background]="msg.sender === username() ? '#0084ff' : '#ffffff'"
@@ -119,7 +139,7 @@
                       {{ msg.time }}
                     </small>
 
-                    <!-- HIỂN THỊ CỤM ICON CẢM XÚC NẾU CÓ AI THẢ -->
+                    <!-- HIỂN THỊ CỤM ICON CẢM XÚC NẾU CÓ -->
                     @if (msg.reactions && msg.reactions.length > 0) {
                       <div style="position: absolute; bottom: -8px; background: #ffffff; border-radius: 12px; padding: 2px 6px; display: flex; gap: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; z-index: 2;"
                            [style.right]="msg.sender === username() ? '12px' : 'auto'" [style.left]="msg.sender !== username() ? '12px' : 'auto'">
@@ -132,14 +152,13 @@
                     }
                   </div>
 
-                  <!-- NÚT MẶT CƯỜI ĐỂ MỞ BẢNG CHỌN EMOJI -->
+                  <!-- NÚT CHỌN EMOJI -->
                   <button mat-icon-button style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; color: #888; flex-shrink: 0;" 
                           (click)="toggleReactionPicker(msg.id)">
                     <mat-icon style="font-size: 18px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;">sentiment_satisfied</mat-icon>
                   </button>
 
                   <!-- BẢNG MINI-POPUP CHỌN ICON -->
-                  <!-- Tăng z-index lên để tránh bị đè trên mobile -->
                   @if (msg.showReactionPicker) {
                     <div style="position: absolute; background: white; border-radius: 20px; padding: 6px 10px; display: flex; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); border: 1px solid #ccc; z-index: 99; top: -40px;"
                          [style.right]="msg.sender === username() ? '36px' : 'auto'" [style.left]="msg.sender !== username() ? '36px' : 'auto'">
@@ -177,18 +196,27 @@
           </div>
         }
 
-        <!-- KHU VỰC NHẬP TIN NHẮN -->
-        <!-- FIX MOBILE: Tháo dỡ padding âm -22px và thiết lập subscriptSizing="dynamic" để bàn phím không bóp méo khung nhập liệu -->
-        <div class="input-area" style="background: #ffffff; padding: 8px 12px; display: flex; align-items: center; gap: 8px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); flex-shrink: 0;">
+        <!-- KHU VỰC NHẬP TIN NHẮN (Bổ sung padding-bottom an toàn cho tai thỏ dưới của iPhone) -->
+        <div class="input-area" style="
+          background: #ffffff; 
+          padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) 12px; 
+          display: flex; 
+          align-items: center; 
+          gap: 8px; 
+          box-shadow: 0 -2px 10px rgba(0,0,0,0.05); 
+          flex-shrink: 0;
+        ">
           <mat-form-field appearance="outline" style="flex: 1; margin-bottom: 0;" subscriptSizing="dynamic">
             <input 
               matInput 
               [(ngModel)]="currentMessage" 
               (input)="onInputChange()" 
               (keyup.enter)="sendMessage()" 
+              (focus)="scrollToBottomOnFocus()"
               placeholder="Nhập tin nhắn..."
-              style="font-size: 15px;"
+              style="font-size: 16px; -webkit-tap-highlight-color: transparent;" 
             >
+            <!-- Giải thích thuộc tính CSS: font-size: 16px; ngăn iOS tự động zoom màn hình khi chạm vào ô nhập liệu -->
           </mat-form-field>
           <button mat-mini-fab color="primary" (click)="sendMessage()" [disabled]="currentMessage().trim() === ''" style="flex-shrink: 0; width: 40px; height: 40px;">
             <mat-icon style="font-size: 20px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">send</mat-icon>
