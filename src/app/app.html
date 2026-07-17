@@ -33,20 +33,22 @@
     }
   </style>
 
-  <!-- Sử dụng position: fixed thay vì height: 100vh để chống trôi layout trên iOS khi mở bàn phím -->
-  <div class="chat-container" style="
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    right: 0; 
-    bottom: 0; 
-    display: flex; 
-    flex-direction: column; 
-    background: #eaeaea; 
-    overflow: hidden;
-    padding-left: env(safe-area-inset-left); /* Chống mất lề trên iPhone có tai thỏ */
-    padding-right: env(safe-area-inset-right);
-  ">
+  <!-- ĐÃ CẬP NHẬT: Sử dụng [style.height] động để tự co rụt lại khi bàn phím ảo iOS đẩy lên -->
+  <div class="chat-container" 
+       [style.height]="chatHeight()"
+       style="
+         position: fixed; 
+         top: 0; 
+         left: 0; 
+         right: 0; 
+         display: flex; 
+         flex-direction: column; 
+         background: #eaeaea; 
+         overflow: hidden;
+         padding-left: env(safe-area-inset-left); /* Chống mất lề trên iPhone có tai thỏ */
+         padding-right: env(safe-area-inset-right);
+         transition: height 0.1s ease-out; /* Hiệu ứng mượt mà khi co giãn khung nhìn */
+       ">
     
     <!-- THANH TOOLBAR TRÊN CÙNG -->
     <mat-toolbar color="primary" style="display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0; height: 56px; min-height: 56px;">
@@ -90,7 +92,6 @@
       <div style="flex: 1; display: flex; flex-direction: column; background: #eaeaea; position: relative; overflow: hidden;">
         
         <!-- KHU VỰC HIỂN THỊ TIN NHẮN -->
-        <!-- Bổ sung padding-left và padding-right rõ ràng để giữ lề cân đối trên iPhone màn hình lớn -->
         <div #messageArea class="message-area" style="
           flex: 1; 
           overflow-y: auto; 
@@ -196,7 +197,7 @@
           </div>
         }
 
-        <!-- KHU VỰC NHẬP TIN NHẮN (Bổ sung padding-bottom an toàn cho tai thỏ dưới của iPhone) -->
+        <!-- KHU VỰC NHẬP TIN NHẮN (Giữ nguyên padding an toàn iOS) -->
         <div class="input-area" style="
           background: #ffffff; 
           padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) 12px; 
@@ -216,7 +217,6 @@
               placeholder="Nhập tin nhắn..."
               style="font-size: 16px; -webkit-tap-highlight-color: transparent;" 
             >
-            <!-- Giải thích thuộc tính CSS: font-size: 16px; ngăn iOS tự động zoom màn hình khi chạm vào ô nhập liệu -->
           </mat-form-field>
           <button mat-mini-fab color="primary" (click)="sendMessage()" [disabled]="currentMessage().trim() === ''" style="flex-shrink: 0; width: 40px; height: 40px;">
             <mat-icon style="font-size: 20px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">send</mat-icon>

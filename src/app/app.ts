@@ -22,7 +22,7 @@ interface Reaction {
 
 // Mở rộng interface Message để hỗ trợ ID và Cảm xúc
 interface Message {
-  id: string;          // ID duy nhất cho từng tin nhắn để định vị khi thả emoji
+  id: string;           // ID duy nhất cho từng tin nhắn để định vị khi thả emoji
   sender?: string;      // Để optional vì tin nhắn hệ thống (isSystem) sẽ không cần sender
   content: string;
   time: string;
@@ -55,6 +55,9 @@ export class App implements OnInit, OnDestroy {
   isLoggedIn = signal(false);  
   currentMessage = model('');
 
+  // Tín hiệu động quản lý chiều cao thực tế của khung chat (Fix lỗi bàn phím đè trên iOS)
+  chatHeight = signal('100vh');
+
   // Danh sách tin nhắn động (Bắt đầu bằng mảng rỗng)
   messages = signal<Message[]>([]);
 
@@ -80,7 +83,25 @@ export class App implements OnInit, OnDestroy {
 
     // 2. Đăng ký tất cả các hàm lắng nghe sự kiện từ Server
     this.setupSocketListeners();
+
+    // 3. ĐĂNG KÝ THEO DÕI VISUAL VIEWPORT ĐỂ ĐỐI PHÓ VỚI BÀN PHÍM IOS
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this.handleViewportChange);
+      window.visualViewport.addEventListener('scroll', this.handleViewportChange);
+    }
   }
+
+  // Hàm callback tính toán chiều cao viewport thực tế
+  private handleViewportChange = () => {
+    if (window.visualViewport) {
+      const pendingHeight = window.visualViewport.height;
+      // Cập nhật tín hiệu chiều cao động theo pixel trống còn lại phía trên bàn phím
+      this.chatHeight.set(`${pendingHeight}px`);
+      
+      // Đẩy màn hình chat xuống dưới cùng ngay lập tức để bám theo bàn phím
+      this.scrollToBottom();
+    }
+  };
 
   // Tách riêng phần lắng nghe sự kiện để tránh lặp code hoặc mất kết nối
   private setupSocketListeners() {
@@ -175,16 +196,17 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  // HÀM CLICK FOCUS CHỐNG TRÔI TRANG TRÊN SAFARI
   scrollToBottomOnFocus() {
-  // 1. Reset lại vị trí cuộn của window về 0 để chống trôi/lệch layout của iOS
-  window.scrollTo(0, 0);
-  
-  // 2. Đợi bàn phím ảo trồi lên hẳn rồi cuộn vùng chat xuống dưới cùng
-  setTimeout(() => {
-    this.scrollToBottom();
-    window.scrollTo(0, 0); // Kép thêm 1 lần nữa cho chắc chắn
-  }, 300);
-}
+    // 1. Reset lại vị trí cuộn của window chính về đầu để tránh iOS dịch chuyển cả trang web đi nơi khác
+    window.scrollTo(0, 0);
+    
+    // 2. Đợi bàn phím ảo trồi lên hẳn rồi cuộn vùng chat xuống dưới cùng
+    setTimeout(() => {
+      this.scrollToBottom();
+      window.scrollTo(0, 0); // Đảm bảo cố định khung nhìn lần nữa
+    }, 150);
+  }
 
   // Gửi tin nhắn lên Server
   sendMessage() {
@@ -249,8 +271,15 @@ export class App implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Hủy kết nối Socket
     if (this.socket) {
       this.socket.disconnect();
+    }
+
+    // GỠ BỎ LẮNG NGHE SỰ KIỆN VISUAL VIEWPORT ĐỂ TRÁNH TRÀN BỘ NHỚ
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.handleViewportChange);
+      window.visualViewport.removeEventListener('scroll', this.handleViewportChange);
     }
   }
 }
