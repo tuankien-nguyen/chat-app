@@ -14,11 +14,21 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
+// Định nghĩa cấu trúc cho Cảm xúc tin nhắn
+interface Reaction {
+  reactor: string;
+  emoji: string;
+}
+
+// Mở rộng interface Message để hỗ trợ ID và Cảm xúc
 interface Message {
+  id: string;          // ID duy nhất cho từng tin nhắn để định vị khi thả emoji
   sender?: string;      // Để optional vì tin nhắn hệ thống (isSystem) sẽ không cần sender
   content: string;
   time: string;
   isSystem?: boolean;   // True nếu là tin nhắn hệ thống (vào/ra phòng)
+  reactions?: Reaction[]; // Mảng chứa danh sách các cảm xúc của tin nhắn này
+  showReactionPicker?: boolean; // Trạng thái ẩn/hiện bảng chọn emoji local
 }
 
 @Component({
@@ -38,6 +48,9 @@ interface Message {
   styleUrl: './app.css'
 })
 export class App implements OnInit, OnDestroy {
+  linkOnline = "https://tuankien-chat-backend.onrender.com"
+  linkLocal = "http://localhost:3000"
+  LINK = this.linkLocal
   username = model('');       
   isLoggedIn = signal(false);  
   currentMessage = model('');
@@ -45,9 +58,15 @@ export class App implements OnInit, OnDestroy {
   // Danh sách tin nhắn động (Bắt đầu bằng mảng rỗng)
   messages = signal<Message[]>([]);
 
+  // Tín hiệu lưu danh sách người dùng đang online trong phòng
+  usersOnline = signal<string[]>([]);
+
   // Trạng thái đang gõ chữ
   typingMessage = signal(''); 
   private typingTimeout: any;
+
+  // Danh sách các icon cảm xúc hỗ trợ thả nhanh
+  availableEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   // Lấy đối tượng message area từ HTML để xử lý tự động cuộn (Auto-scroll)
   @ViewChild('messageArea') private messageArea!: ElementRef;
@@ -56,28 +75,55 @@ export class App implements OnInit, OnDestroy {
   private socket!: Socket;
 
   ngOnInit() {
-    // 1. Kết nối tới Server Node.js (Render)
-    this.socket = io('https://tuankien-chat-backend.onrender.com');
+    // 1. Khởi tạo kết nối Socket một lần duy nhất khi Component chạy
+    this.socket = io(this.LINK, { autoConnect: true });
 
-    // 2. Lắng nghe tin nhắn chat thông thường từ Server truyền về
+    // 2. Đăng ký tất cả các hàm lắng nghe sự kiện từ Server
+    this.setupSocketListeners();
+  }
+
+  // Tách riêng phần lắng nghe sự kiện để tránh lặp code hoặc mất kết nối
+  private setupSocketListeners() {
+    // Lắng nghe tin nhắn chat thông thường từ Server truyền về
     this.socket.on('receiveMessage', (data: Message) => {
       this.messages.update(prev => [...prev, data]);
-      // Chờ giao diện render tin nhắn mới xong thì cuộn xuống
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
-    // 3. LẮNG NGHE TIN NHẮN HỆ THỐNG (VÀO / RA PHÒNG)
+    // LẮNG NGHE TIN NHẮN HỆ THỐNG (VÀO / RA PHÒNG)
     this.socket.on('systemMessage', (data: Message) => {
       this.messages.update(prev => [...prev, data]);
       setTimeout(() => this.scrollToBottom(), 50);
     });
 
-    // 4. LẮNG NGHE KHI CÓ NGƯỜI KHÁC ĐANG GÕ CHỮ
+    // LẮNG NGHE DANH SÁCH NGƯỜI ONLINE CẬP NHẬT TỪ SERVER
+    this.socket.on('updateUserList', (userList: string[]) => {
+      this.usersOnline.set(userList);
+    });
+
+    // LẮNG NGHE SỰ KIỆN THẢ ICON CẢM XÚC TIN NHẮN TỪ PHÒNG CHAT
+    this.socket.on('receiveReaction', (data: { messageId: string, reactor: string, emoji: string }) => {
+      this.messages.update(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg.id === data.messageId) {
+            const currentReactions = msg.reactions || [];
+            const filteredReactions = currentReactions.filter(r => r.reactor !== data.reactor);
+            return {
+              ...msg,
+              reactions: [...filteredReactions, { reactor: data.reactor, emoji: data.emoji }]
+            };
+          }
+          return msg;
+        })
+      );
+    });
+
+    // LẮNG NGHE KHI CÓ NGƯỜI KHÁC ĐANG GÕ CHỮ
     this.socket.on('userTyping', (typingUser: string) => {
       this.typingMessage.set(`${typingUser} đang gõ...`);
     });
 
-    // 5. LẮNG NGHE KHI NGƯỜI ĐÓ DỪNG GÕ HOẶC GỬI TIN
+    // LẮNG NGHE KHI NGƯỜI ĐÓ DỪNG GÕ HOẶC GỬI TIN
     this.socket.on('userStopTyping', () => {
       this.typingMessage.set('');
     });
@@ -96,21 +142,17 @@ export class App implements OnInit, OnDestroy {
 
   // HÀM GỬI TÍN HIỆU ĐANG GÕ CHỮ LÊN SERVER
   onInputChange() {
-    // Chỉ gửi tín hiệu khi người dùng thực sự có gõ chữ
     if (this.currentMessage().trim() !== '') {
       this.socket.emit('typing', this.username());
 
-      // Xoá bộ đếm thời gian cũ
       if (this.typingTimeout) {
         clearTimeout(this.typingTimeout);
       }
 
-      // Đặt bộ đếm 1.5 giây: Nếu dừng gõ 1.5s thì gửi sự kiện ngưng gõ lên server
       this.typingTimeout = setTimeout(() => {
         this.socket.emit('stopTyping');
       }, 1500);
     } else {
-      // Nếu xoá sạch kí tự trong ô input, lập tức báo dừng gõ luôn
       this.socket.emit('stopTyping');
     }
   }
@@ -118,9 +160,14 @@ export class App implements OnInit, OnDestroy {
   // Đăng nhập vào phòng chat
   joinRoom() {
     if (this.username().trim() !== '') {
+      // Đảm bảo socket đã kết nối trước khi gửi sự kiện đăng nhập
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
+
       this.isLoggedIn.set(true); 
 
-      // BÁO CHO SERVER BIẾT MÌNH VỪA THAM GIA PHÒNG
+      // BÁO CHO SERVER BIẾT MÌNH VỪA THAM GIA PHÒNG VỚI USERNAME MỚI
       this.socket.emit('userJoin', this.username());
 
       // Cuộn xuống dưới cùng khi vừa vào phòng
@@ -135,19 +182,15 @@ export class App implements OnInit, OnDestroy {
       const now = new Date();
       const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
       
-      const newMessage: Message = {
+      const newMessage = {
         sender: this.username(),
         content: text,
         time: timeStr
       };
 
-      // Bắn tin nhắn lên server thông qua cổng 'sendMessage'
       this.socket.emit('sendMessage', newMessage);
-
-      // Xóa ô nhập liệu
       this.currentMessage.set('');
 
-      // Ngắt trạng thái gõ và báo ngay cho server dừng gõ
       if (this.typingTimeout) {
         clearTimeout(this.typingTimeout);
       }
@@ -155,20 +198,46 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  // HÀM GỬI LỆNH THẢ CẢM XÚC LÊN SERVER
+  reactToMessage(messageId: string, emoji: string) {
+    this.socket.emit('sendReaction', {
+      messageId: messageId,
+      reactor: this.username(),
+      emoji: emoji
+    });
+    this.toggleReactionPicker(messageId, false);
+  }
+
+  // BẬT / TẮT POPUP CHỌN EMOJI CỦA TIN NHẮN
+  toggleReactionPicker(messageId: string, forceState?: boolean) {
+    this.messages.update(prev => 
+      prev.map(msg => {
+        if (msg.id === messageId) {
+          return { ...msg, showReactionPicker: forceState !== undefined ? forceState : !msg.showReactionPicker };
+        }
+        return { ...msg, showReactionPicker: false };
+      })
+    );
+  }
+
   // Đăng xuất khỏi phòng chat
   logout() {
-    // Ngắt kết nối socket để kích hoạt sự kiện disconnect trên server (báo rời phòng)
+    // 1. Chủ động báo ngắt kết nối lên Server (Server tự động xóa user cũ ra khỏi phòng chat)
     this.socket.disconnect();
 
+    // 2. Reset sạch sẽ các trạng thái hiển thị tại Client
     this.isLoggedIn.set(false);
     this.username.set('');
+    this.messages.set([]);        // Xóa tin nhắn cũ của phiên làm việc trước
+    this.usersOnline.set([]);      // Xóa danh sách online cũ
+    this.typingMessage.set('');    // Reset dòng chữ đang gõ
 
-    // Kết nối lại socket mới để chuẩn bị cho lượt đăng nhập tiếp theo
-    this.socket = io('https://tuankien-chat-backend.onrender.com');
+    // 3. Kết nối lại chính đối tượng socket này (Nó vẫn giữ nguyên tất cả sự kiện đã bind)
+    // Sẵn sàng kết nối sạch sẽ cho username tiếp theo đăng nhập
+    this.socket.connect();
   }
 
   ngOnDestroy() {
-    // Ngắt kết nối socket khi component bị hủy để tránh rò rỉ bộ nhớ
     if (this.socket) {
       this.socket.disconnect();
     }
